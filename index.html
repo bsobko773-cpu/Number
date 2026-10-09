@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoPlate Simulator - Элитные Автономера</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        neonCyan: '#06b6d4',
+                        neonPink: '#ec4899',
+                        goldPrimary: '#eab308',
+                        goldDark: '#ca8a04',
+                        officeBlue: '#3b82f6',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .plate-font { font-family: 'Share Tech Mono', monospace; }
+        .neon-glow-cyan { box-shadow: 0 0 20px rgba(6, 182, 212, 0.4); }
+        .neon-glow-gold { box-shadow: 0 0 20px rgba(234, 179, 8, 0.4); }
+        .neon-glow-pink { box-shadow: 0 0 20px rgba(236, 72, 153, 0.4); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white transition-colors duration-300" id="bodyTheme">
+
+    <!-- ЗАСТАВКА АВТОРИЗАЦІЇ -->
+    <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl"></div>
+            <div class="text-center mb-6">
+                <span class="text-3xl">🚗</span>
+                <h2 class="text-2xl font-bold mt-2 bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">AutoPlate Sim</h2>
+                <p class="text-slate-400 text-sm mt-1">Введите ваш Telegram и PIN для входа</p>
+            </div>
+            <form id="authForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Telegram (@username)</label>
+                    <input type="text" id="authTelegram" required placeholder="@username" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">PIN-код (секретный код)</label>
+                    <input type="password" id="authPin" required placeholder="••••" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-all">
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-cyan-500/25 transition-all transform active:scale-95">
+                    Войти / Создать аккаунт
+                </button>
+            </form>
+            <div id="authError" class="mt-4 text-center text-red-400 text-xs hidden"></div>
+        </div>
+    </div>
+
+    <!-- ОСНОВНИЙ ІНТЕРФЕЙС (Прихований до авторизації) -->
+    <div id="appContainer" class="hidden flex-1 flex flex-col max-w-4xl mx-auto w-full p-4 md:p-6">
+        
+        <!-- ВЕРХНЯ ПАНЕЛЬ (БАЛАНС ТА МЕНЮ) -->
+        <header class="flex items-center justify-between bg-slate-900/80 backdrop-blur-md border border-slate-800/80 rounded-2xl p-4 mb-6 shadow-lg">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-pink-500 flex items-center justify-center text-xl shadow-md">
+                    🚘
+                </div>
+                <div>
+                    <h1 class="font-bold text-sm text-slate-200" id="userNameDisplay">@user</h1>
+                    <p class="text-xs text-slate-400">Игрок</p>
+                </div>
+            </div>
+
+            <!-- БАЛАНС ТА ДОНАТ -->
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center bg-slate-800/90 border border-slate-700/60 rounded-xl px-3 py-1.5 shadow-inner">
+                    <span class="text-amber-400 text-lg mr-1.5">⭐</span>
+                    <span id="userBalance" class="font-bold text-base text-white">0</span>
+                    <span class="text-xs text-slate-400 ml-1">зв.</span>
+                    <button onclick="openDonatModal()" class="ml-2.5 w-6 h-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-lg flex items-center justify-center transition-all shadow-md">+</button>
+                </div>
+                <button onclick="openSettingsModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-all text-slate-300 hover:text-white">
+                    ⚙️
+                </button>
+            </div>
+        </header>
+
+        <!-- НАВІГАЦІЙНІ ВКЛАДКИ -->
+        <nav class="grid grid-cols-4 gap-2 bg-slate-900/60 border border-slate-800/80 p-1.5 rounded-2xl mb-6 shadow-inner">
+            <button onclick="switchTab('roulette')" id="tab-roulette" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all bg-cyan-500 text-slate-950 shadow-md">🎰 Рулетка</button>
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white">🎒 Инвентарь</button>
+            <button onclick="switchTab('promocode')" id="tab-promocode" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white">🎟 Промокод</button>
+            <button onclick="switchTab('withdrawal')" id="tab-withdrawal" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white">💸 Вывод</button>
+        </nav>
+
+        <!-- КОНТЕНТ ВКЛАДОК -->
+        <main class="flex-1 flex flex-col">
+
+            <!-- 1. РУЛЕТКА -->
+            <section id="section-roulette" class="tab-content flex-1 flex flex-col items-center justify-center">
+                <div class="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden text-center">
+                    
+                    <!-- Вибір країни -->
+                    <div class="mb-6">
+                        <label class="block text-xs uppercase tracking-wider text-slate-400 mb-2">Выберите регион номеров</label>
+                        <select id="countrySelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white font-medium focus:outline-none focus:border-cyan-500">
+                            <option value="Ukraine">🇺🇦 Украина (UA)</option>
+                            <option value="USA">🇺🇸 США (US)</option>
+                            <option value="Europe">🇪🇺 Европейский Союз (EU)</option>
+                        </select>
+                    </div>
+
+                    <!-- ТАБЛИЧКА НОМЕРА (Анімація рулетки) -->
+                    <div class="my-8 py-8 bg-slate-950/80 border-2 border-slate-800 rounded-2xl shadow-inner relative overflow-hidden flex items-center justify-center">
+                        <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-pink-500/5 pointer-events-none"></div>
+                        <div id="plateDisplay" class="plate-font text-3xl md:text-4xl font-extrabold tracking-widest text-cyan-400 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)] transition-all">
+                            AA 0000 AA
+                        </div>
+                    </div>
+
+                    <!-- Інфо про виграш -->
+                    <div id="spinResultInfo" class="mb-6 h-10 flex items-center justify-center text-sm font-medium text-slate-400">
+                        Нажмите кнопку ниже, чтобы испытать удачу! (Стоимость: 5 ⭐)
+                    </div>
+
+                    <!-- Кнопка прокруту -->
+                    <button id="spinBtn" onclick="spinWheel()" class="w-full bg-gradient-to-r from-cyan-500 via-blue-600 to-pink-600 hover:opacity-95 text-white font-extrabold py-4 rounded-2xl shadow-xl shadow-cyan-500/20 text-lg transition-all transform active:scale-95">
+                        КРУТИТЬ РУЛЕТКУ (5 ⭐)
+                    </button>
+                    <p class="text-xs text-slate-500 mt-3" id="freeSpinsInfo">Доступно бесплатных прокрутов: 0</p>
+                </div>
+            </section>
+
+            <!-- 2. ІНВЕНТАР -->
+            <section id="section-inventory" class="tab-content hidden flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold">Ваши автономера</h2>
+                    <button onclick="loadInventory()" class="text-xs text-cyan-400 hover:underline">Обновить</button>
+                </div>
+                <div id="inventoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto max-h-[500px] pr-1">
+                    <!-- Динамічно заповнюється -->
+                    <div class="text-center py-12 text-slate-500 col-span-full">Инвентарь пуст. Крутите рулетку!</div>
+                </div>
+            </section>
+
+            <!-- 3. ПРОМОКОД -->
+            <section id="section-promocode" class="tab-content hidden flex-1 flex flex-col items-center justify-center">
+                <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl text-center">
+                    <span class="text-4xl">🎟️</span>
+                    <h2 class="text-xl font-bold mt-2">Активация промокода</h2>
+                    <p class="text-xs text-slate-400 mt-1 mb-6">Введите промокод для получения бесплатных звёзд или прокрутов</p>
+                    
+                    <input type="text" id="promoInput" placeholder="Введите код (например: START)" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center uppercase tracking-widest text-white font-bold mb-4 focus:outline-none focus:border-cyan-500">
+                    <button onclick="activatePromo()" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3.5 rounded-xl shadow-lg transition-all">
+                        Активировать
+                    </button>
+                    <div id="promoMessage" class="mt-4 text-xs font-medium"></div>
+                </div>
+            </section>
+
+            <!-- 4. ВИВІД -->
+            <section id="section-withdrawal" class="tab-content hidden flex-1 flex flex-col">
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+                    <h2 class="text-lg font-bold mb-2">Заявка на выплату / перенос номера</h2>
+                    <p class="text-xs text-slate-400 mb-6">Выберите редкий номер из вашего инвентаря и отправьте заявку на вывод.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Ваш Telegram @username для связи</label>
+                            <input type="text" id="withdrawTelegram" readonly class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-slate-300">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Выберите предмет из инвентаря</label>
+                            <select id="withdrawItemSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500">
+                                <option value="">Сначала выбейте номер в рулетке</option>
+                            </select>
+                        </div>
+                        <button onclick="requestWithdrawal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold py-3.5 rounded-xl shadow-lg transition-all">
+                            ОТПРАВИТЬ ЗАЯВКУ НА ВЫПЛАТУ
+                        </button>
+                        <div id="withdrawMessage" class="text-center text-xs"></div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- МОДАЛЬНЕ ВІКНО ДОНАТУ -->
+    <div id="donatModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <span class="text-3xl">⭐</span>
+            <h3 class="text-lg font-bold mt-2">Пополнение баланса</h3>
+            <p class="text-xs text-slate-400 mt-1 mb-4">Курс: 1 Звезда = 1 Гривня (UAH)</p>
+            <div class="bg-slate-800 p-3 rounded-xl mb-4 text-xs text-slate-300">
+                Функция доната находится в разработке. Обратитесь к администратору @username для пополнения.
+            </div>
+            <button onclick="closeDonatModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-sm">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНЕ ВІКНО НАЛАШТУВАНЬ -->
+    <div id="settingsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 class="text-lg font-bold mb-4">⚙️ Настройки</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Тема интерфейса</label>
+                    <select id="themeSelect" onchange="changeTheme(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-white text-sm">
+                        <option value="neon">Неоновая (Темная)</option>
+                        <option value="gold">Золотой премиум</option>
+                        <option value="office">Строгий офис</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Звуковые эффекты</label>
+                    <select id="soundSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-white text-sm">
+                        <option value="on">Включены</option>
+                        <option value="off">Выключены</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="closeSettingsModal()" class="w-full mt-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm">Сохранить</button>
+        </div>
+    </div>
+
+    <!-- СКРИПТ ЛОГІКИ ТА SUPABASE -->
+    <script>
+        // ВСТАВ СВОЇ ДАНІ SUPABASE ТУТ:
+        const SUPABASE_URL = 'https://atbqzslhzbnmebdjonig.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_zjI9RflUYr-eA5p7DrIB7w_l8nrnFiF';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = null;
+
+        // ВЕБ АУДІО API ДЛЯ ЗВУКІВ
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (document.getElementById('soundSelect').value === 'off') return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            if (type === 'click') {
+                osc.frequency.setValueAtTime(400, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'tick') {
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.03, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+                osc.start(now);
+                osc.stop(now + 0.04);
+            } else if (type === 'win') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+        }
+
+        // АВТОРИЗАЦІЯ
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            playSound('click');
+            const telegram = document.getElementById('authTelegram').value.trim();
+            const pin = document.getElementById('authPin').value.trim();
+            const errDiv = document.getElementById('authError');
+
+            const { data, error } = await supabase.rpc('auth_user', { p_telegram: telegram, p_pin: pin });
+            
+            if (error || !data.success) {
+                errDiv.textContent = error?.message || data.error || 'Ошибка входа';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            currentUser = data.user;
+            initApp();
+        });
+
+        function initApp() {
+            document.getElementById('authModal').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            document.getElementById('userNameDisplay').textContent = currentUser.telegram_tag;
+            document.getElementById('withdrawTelegram').value = currentUser.telegram_tag;
+            updateUIStats();
+        }
+
+        function updateUIStats() {
+            if (!currentUser) return;
+            document.getElementById('userBalance').textContent = currentUser.balance;
+            document.getElementById('freeSpinsInfo').textContent = `Доступно бесплатных прокрутов: ${currentUser.free_spins}`;
+        }
+
+        // ПЕРЕМИКАННЯ ВКЛАДОК
+        function switchTab(tabName) {
+            playSound('click');
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white';
+            });
+
+            document.getElementById(`section-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.className = 'tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all bg-cyan-500 text-slate-950 shadow-md';
+
+            if (tabName === 'inventory') loadInventory();
+            if (tabName === 'withdrawal') loadWithdrawalItems();
+        }
+
+        // РУЛЕТКА ТА АНІМАЦІЯ ПОСТУПОВОГО ВИПАДАННЯ
+        async function spinWheel() {
+            playSound('click');
+            const spinBtn = document.getElementById('spinBtn');
+            const country = document.getElementById('countrySelect').value;
+            spinBtn.disabled = true;
+
+            // Викликаємо функцію бекенду
+            const { data, error } = await supabase.rpc('spin_wheel', { p_user_id: currentUser.id, p_country: country });
+
+            if (error || !data.success) {
+                alert(error?.message || data.error || 'Недостаточно средств!');
+                spinBtn.disabled = false;
+                return;
+            }
+
+            // Оновлюємо локальний баланс (якщо були прокрути чи списання)
+            if (currentUser.free_spins > 0) {
+                currentUser.free_spins--;
+            } else {
+                currentUser.balance -= 5;
+            }
+            updateUIStats();
+
+            // Імітація анімації барабана (випадання по буквах для інтриги)
+            const finalPlate = data.plate;
+            const plateDisplay = document.getElementById('plateDisplay');
+            const resultInfo = document.getElementById('spinResultInfo');
+            resultInfo.textContent = 'Крутим барабан номеров...';
+
+            let iterations = 0;
+            const letters = 'ABCEHIKMOPTX0123456789';
+            const interval = setInterval(() => {
+                playSound('tick');
+                let randomFake = '';
+                for (let i = 0; i < finalPlate.length; i++) {
+                    if (finalPlate[i] === ' ') {
+                        randomFake += ' ';
+                    } else {
+                        randomFake += letters[Math.floor(Math.random() * letters.length)];
+                    }
+                }
+                plateDisplay.textContent = randomFake;
+                iterations++;
+
+                if (iterations > 18) {
+                    clearInterval(interval);
+                    plateDisplay.textContent = finalPlate;
+                    playSound('win');
+                    
+                    let rarityText = 'Обычный (в минус)';
+                    let colorClass = 'text-slate-400';
+                    if (data.rarity === 'rare') { rarityText = 'Редкий!'; colorClass = 'text-cyan-400'; }
+                    if (data.rarity === 'epic') { rarityText = 'Эпический!'; colorClass = 'text-pink-400'; }
+                    if (data.rarity === 'legendary') { rarityText = 'ЛЕГЕНДАРНЫЙ!! 🔥'; colorClass = 'text-amber-400'; }
+
+                    resultInfo.innerHTML = `<span class="${colorClass} font-bold">${rarityText} Ценность: ${data.value} ⭐</span>`;
+                    spinBtn.disabled = false;
+                }
+            }, 80);
+        }
+
+        // ІНВЕНТАР
+        async function loadInventory() {
+            const grid = document.getElementById('inventoryGrid');
+            grid.innerHTML = '<div class="text-center py-8 text-slate-500 col-span-full">Загрузка...</div>';
+
+            const { data, error } = await supabase
+                .from('inventory')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error || !data || data.length === 0) {
+                grid.innerHTML = '<div class="text-center py-12 text-slate-500 col-span-full">Инвентарь пуст. Крутите рулетку!</div>';
+                return;
+            }
+
+            grid.innerHTML = data.map(item => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-md">
+                    <div>
+                        <div class="plate-font text-lg font-bold text-white tracking-widest">${item.plate_number}</div>
+                        <div class="text-xs text-slate-400 mt-1">Регион: ${item.country} | <span class="text-cyan-400">${item.rarity}</span></div>
+                        <div class="text-xs font-semibold text-amber-400 mt-0.5">Ценность: ${item.value} ⭐</div>
+                    </div>
+                    <span class="text-xs px-2.5 py-1 rounded-lg ${item.status === 'inventory' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                        ${item.status === 'inventory' ? 'В инвентаре' : 'В обработке'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // ПРОМОКОДИ
+        async function activatePromo() {
+            playSound('click');
+            const code = document.getElementById('promoInput').value.trim();
+            const msg = document.getElementById('promoMessage');
+
+            if (!code) return;
+
+            const { data, error } = await supabase.rpc('activate_promocode', { p_user_id: currentUser.id, p_code: code });
+
+            if (error || !data.success) {
+                msg.textContent = error?.message || data.error || 'Ошибка активации';
+                msg.className = 'mt-4 text-xs font-medium text-red-400';
+                return;
+            }
+
+            msg.textContent = data.message;
+            msg.className = 'mt-4 text-xs font-medium text-emerald-400';
+            document.getElementById('promoInput').value = '';
+            
+            // Оновлюємо дані користувача
+            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', currentUser.id).single();
+            if (updatedUser) {
+                currentUser = updatedUser;
+                updateUIStats();
+            }
+        }
+
+        // ВИВІД
+        async function loadWithdrawalItems() {
+            const select = document.getElementById('withdrawItemSelect');
+            const { data, error } = await supabase
+                .from('inventory')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .eq('status', 'inventory');
+
+            if (error || !data || data.length === 0) {
+                select.innerHTML = '<option value="">Нет доступных номеров в инвентаре</option>';
+                return;
+            }
+
+            select.innerHTML = data.map(item => `
+                <option value="${item.id}">[${item.rarity.toUpperCase()}] ${item.plate_number} — ${item.value} ⭐</option>
+            `).join('');
+        }
+
+        async function requestWithdrawal() {
+            playSound('click');
+            const itemId = document.getElementById('withdrawItemSelect').value;
+            const msg = document.getElementById('withdrawMessage');
+
+            if (!itemId) {
+                msg.textContent = 'Выберите номер для выплаты!';
+                msg.className = 'text-center text-xs text-red-400';
+                return;
+            }
+
+            const { data, error } = await supabase.rpc('request_withdrawal', { p_user_id: currentUser.id, p_item_id: itemId });
+
+            if (error || !data.success) {
+                msg.textContent = error?.message || data.error || 'Ошибка отправки заявки';
+                msg.className = 'text-center text-xs text-red-400';
+                return;
+            }
+
+            msg.textContent = data.message;
+            msg.className = 'text-center text-xs text-emerald-400';
+            loadWithdrawalItems();
+        }
+
+        // МОДАЛЬНІ ВІКНА ТА ТЕМИ
+        function openDonatModal() { playSound('click'); document.getElementById('donatModal').classList.remove('hidden'); document.getElementById('donatModal').classList.add('flex'); }
+        function closeDonatModal() { playSound('click'); document.getElementById('donatModal').classList.remove('flex'); document.getElementById('donatModal').classList.add('hidden'); }
+
+        function openSettingsModal() { playSound('click'); document.getElementById('settingsModal').classList.remove('hidden'); document.getElementById('settingsModal').classList.add('flex'); }
+        function closeSettingsModal() { playSound('click'); document.getElementById('settingsModal').classList.remove('flex'); document.getElementById('settingsModal').classList.add('hidden'); }
+
+        function changeTheme(theme) {
+            const body = document.getElementById('bodyTheme');
+            if (theme === 'neon') {
+                body.className = 'bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white transition-colors duration-300';
+            } else if (theme === 'gold') {
+                body.className = 'bg-[#12110e] text-amber-100 min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950 transition-colors duration-300';
+            } else if (theme === 'office') {
+                body.className = 'bg-slate-900 text-slate-200 min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white transition-colors duration-300';
+            }
+        }
+    </script>
+</body>
+</html>
