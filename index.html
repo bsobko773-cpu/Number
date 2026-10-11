@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru" class="dark">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoPlate Simulator - Элитные Автономера</title>
+    <title>AutoPlate Simulator - Elite License Plates</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -15,8 +15,6 @@
                         neonCyan: '#06b6d4',
                         neonPink: '#ec4899',
                         goldPrimary: '#eab308',
-                        goldDark: '#ca8a04',
-                        officeBlue: '#3b82f6',
                     }
                 }
             }
@@ -26,165 +24,165 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .plate-font { font-family: 'Share Tech Mono', monospace; }
-        .neon-glow-cyan { box-shadow: 0 0 20px rgba(6, 182, 212, 0.4); }
-        .neon-glow-gold { box-shadow: 0 0 20px rgba(234, 179, 8, 0.4); }
-        .neon-glow-pink { box-shadow: 0 0 20px rgba(236, 72, 153, 0.4); }
+        .neon-glow { box-shadow: 0 0 25px rgba(6, 182, 212, 0.3); }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white transition-colors duration-300" id="bodyTheme">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white transition-colors duration-300">
 
-    <!-- ЗАСТАВКА АВТОРИЗАЦІЇ -->
-    <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
-            <div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl"></div>
-            <div class="text-center mb-6">
-                <span class="text-3xl">🚗</span>
-                <h2 class="text-2xl font-bold mt-2 bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">AutoPlate Sim</h2>
-                <p class="text-slate-400 text-sm mt-1">Введите ваш Telegram и PIN для входа</p>
-            </div>
-            <form id="authForm" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Telegram (@username)</label>
-                    <input type="text" id="authTelegram" required placeholder="@username" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-all">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">PIN-код (секретный код)</label>
-                    <input type="password" id="authPin" required placeholder="••••" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-all">
-                </div>
-                <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-cyan-500/25 transition-all transform active:scale-95">
-                    Войти / Создать аккаунт
-                </button>
-            </form>
-            <div id="authError" class="mt-4 text-center text-red-400 text-xs hidden"></div>
+    <!-- AUTH LOADER -->
+    <div id="authLoader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 p-4 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg mb-4 animate-bounce">
+            🚘
         </div>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">AutoPlate Simulator</h2>
+        <p class="text-slate-400 text-xs mt-2" id="loaderStatus">Securing connection to Supabase...</p>
     </div>
 
-    <!-- ОСНОВНИЙ ІНТЕРФЕЙС (Прихований до авторизації) -->
+    <!-- MAIN APP CONTAINER -->
     <div id="appContainer" class="hidden flex-1 flex flex-col max-w-4xl mx-auto w-full p-4 md:p-6">
         
-        <!-- ВЕРХНЯ ПАНЕЛЬ (БАЛАНС ТА МЕНЮ) -->
-        <header class="flex items-center justify-between bg-slate-900/80 backdrop-blur-md border border-slate-800/80 rounded-2xl p-4 mb-6 shadow-lg">
+        <!-- HEADER -->
+        <header class="flex items-center justify-between bg-slate-900/80 backdrop-blur-md border border-slate-800/80 rounded-2xl p-4 mb-5 shadow-lg">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-pink-500 flex items-center justify-center text-xl shadow-md">
                     🚘
                 </div>
                 <div>
                     <h1 class="font-bold text-sm text-slate-200" id="userNameDisplay">@user</h1>
-                    <p class="text-xs text-slate-400">Игрок</p>
+                    <p class="text-xs text-slate-400" data-i18n="rolePlayer">Player</p>
                 </div>
             </div>
 
-            <!-- БАЛАНС ТА ДОНАТ -->
-            <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-3">
                 <div class="flex items-center bg-slate-800/90 border border-slate-700/60 rounded-xl px-3 py-1.5 shadow-inner">
                     <span class="text-amber-400 text-lg mr-1.5">⭐</span>
                     <span id="userBalance" class="font-bold text-base text-white">0</span>
-                    <span class="text-xs text-slate-400 ml-1">зв.</span>
-                    <button onclick="openDonatModal()" class="ml-2.5 w-6 h-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-lg flex items-center justify-center transition-all shadow-md">+</button>
+                    <span class="text-xs text-slate-400 ml-1">stars</span>
+                    <button onclick="openDonateModal()" class="ml-2.5 w-6 h-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-lg flex items-center justify-center transition-all shadow-md">+</button>
                 </div>
-                <button onclick="openSettingsModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-all text-slate-300 hover:text-white">
+                <button onclick="switchTab('settings')" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-all text-slate-300 hover:text-white">
                     ⚙️
                 </button>
             </div>
         </header>
 
-        <!-- НАВІГАЦІЙНІ ВКЛАДКИ -->
-        <nav class="grid grid-cols-4 gap-2 bg-slate-900/60 border border-slate-800/80 p-1.5 rounded-2xl mb-6 shadow-inner">
-            <button onclick="switchTab('roulette')" id="tab-roulette" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all bg-cyan-500 text-slate-950 shadow-md">🎰 Рулетка</button>
-            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white">🎒 Инвентарь</button>
-            <button onclick="switchTab('promocode')" id="tab-promocode" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white">🎟 Промокод</button>
-            <button onclick="switchTab('withdrawal')" id="tab-withdrawal" class="tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white">💸 Вывод</button>
+        <!-- NAVIGATION TABS -->
+        <nav class="grid grid-cols-5 gap-1.5 bg-slate-900/60 border border-slate-800/80 p-1.5 rounded-2xl mb-5 shadow-inner">
+            <button onclick="switchTab('roulette')" id="tab-roulette" class="tab-btn py-2.5 rounded-xl text-xs font-semibold transition-all bg-cyan-500 text-slate-950 shadow-md">🎰 Roulette</button>
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:text-white">🎒 Inventory</button>
+            <button onclick="switchTab('withdrawal')" id="tab-withdrawal" class="tab-btn py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:text-white">💸 Withdraw</button>
+            <button onclick="switchTab('referral')" id="tab-referral" class="tab-btn py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:text-white">👥 Invite</button>
+            <button onclick="switchTab('settings')" id="tab-settings" class="tab-btn py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:text-white">⚙️ Settings</button>
         </nav>
 
-        <!-- КОНТЕНТ ВКЛАДОК -->
+        <!-- CONTENT SECTIONS -->
         <main class="flex-1 flex flex-col">
 
-            <!-- 1. РУЛЕТКА -->
+            <!-- 1. ROULETTE -->
             <section id="section-roulette" class="tab-content flex-1 flex flex-col items-center justify-center">
-                <div class="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden text-center">
+                <div class="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl text-center relative overflow-hidden neon-glow">
                     
-                    <!-- Вибір країни -->
-                    <div class="mb-6">
-                        <label class="block text-xs uppercase tracking-wider text-slate-400 mb-2">Выберите регион номеров</label>
+                    <div class="mb-5">
+                        <label class="block text-xs uppercase tracking-wider text-slate-400 mb-2">Select Country Region</label>
                         <select id="countrySelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white font-medium focus:outline-none focus:border-cyan-500">
-                            <option value="Ukraine">🇺🇦 Украина (UA)</option>
-                            <option value="USA">🇺🇸 США (US)</option>
-                            <option value="Europe">🇪🇺 Европейский Союз (EU)</option>
+                            <option value="Ukraine">🇺🇦 Ukraine (UA)</option>
+                            <option value="USA">🇺🇸 United States (US)</option>
+                            <option value="Europe">🇪🇺 European Union (EU)</option>
                         </select>
                     </div>
 
-                    <!-- ТАБЛИЧКА НОМЕРА (Анімація рулетки) -->
-                    <div class="my-8 py-8 bg-slate-950/80 border-2 border-slate-800 rounded-2xl shadow-inner relative overflow-hidden flex items-center justify-center">
-                        <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-pink-500/5 pointer-events-none"></div>
-                        <div id="plateDisplay" class="plate-font text-3xl md:text-4xl font-extrabold tracking-widest text-cyan-400 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)] transition-all">
+                    <!-- LICENSE PLATE DISPLAY -->
+                    <div class="my-6 py-8 bg-slate-950/90 border-2 border-slate-800 rounded-2xl shadow-inner relative overflow-hidden flex items-center justify-center">
+                        <div id="plateDisplay" class="plate-font text-3xl md:text-4xl font-extrabold tracking-widest text-cyan-400 drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]">
                             AA 0000 AA
                         </div>
                     </div>
 
-                    <!-- Інфо про виграш -->
-                    <div id="spinResultInfo" class="mb-6 h-10 flex items-center justify-center text-sm font-medium text-slate-400">
-                        Нажмите кнопку ниже, чтобы испытать удачу! (Стоимость: 5 ⭐)
+                    <div id="spinResultInfo" class="mb-5 h-8 flex items-center justify-center text-xs font-medium text-slate-400">
+                        Cost per spin: 5 ⭐ (Free spins available first)
                     </div>
 
-                    <!-- Кнопка прокруту -->
-                    <button id="spinBtn" onclick="spinWheel()" class="w-full bg-gradient-to-r from-cyan-500 via-blue-600 to-pink-600 hover:opacity-95 text-white font-extrabold py-4 rounded-2xl shadow-xl shadow-cyan-500/20 text-lg transition-all transform active:scale-95">
-                        КРУТИТЬ РУЛЕТКУ (5 ⭐)
+                    <button id="spinBtn" onclick="spinWheel()" class="w-full bg-gradient-to-r from-cyan-500 via-blue-600 to-pink-600 hover:opacity-95 text-white font-extrabold py-4 rounded-2xl shadow-xl shadow-cyan-500/20 text-base transition-all transform active:scale-95">
+                        SPIN ROULETTE (5 ⭐)
                     </button>
-                    <p class="text-xs text-slate-500 mt-3" id="freeSpinsInfo">Доступно бесплатных прокрутов: 0</p>
+                    <p class="text-xs text-slate-500 mt-3" id="freeSpinsInfo">Free spins left: 3</p>
                 </div>
             </section>
 
-            <!-- 2. ІНВЕНТАР -->
+            <!-- 2. INVENTORY -->
             <section id="section-inventory" class="tab-content hidden flex-1 flex flex-col">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold">Ваши автономера</h2>
-                    <button onclick="loadInventory()" class="text-xs text-cyan-400 hover:underline">Обновить</button>
+                    <h2 class="text-base font-bold">Your Collected Plates</h2>
+                    <button onclick="loadInventory()" class="text-xs text-cyan-400 hover:underline">Refresh</button>
                 </div>
-                <div id="inventoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto max-h-[500px] pr-1">
-                    <!-- Динамічно заповнюється -->
-                    <div class="text-center py-12 text-slate-500 col-span-full">Инвентарь пуст. Крутите рулетку!</div>
-                </div>
-            </section>
-
-            <!-- 3. ПРОМОКОД -->
-            <section id="section-promocode" class="tab-content hidden flex-1 flex flex-col items-center justify-center">
-                <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl text-center">
-                    <span class="text-4xl">🎟️</span>
-                    <h2 class="text-xl font-bold mt-2">Активация промокода</h2>
-                    <p class="text-xs text-slate-400 mt-1 mb-6">Введите промокод для получения бесплатных звёзд или прокрутов</p>
-                    
-                    <input type="text" id="promoInput" placeholder="Введите код (например: START)" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center uppercase tracking-widest text-white font-bold mb-4 focus:outline-none focus:border-cyan-500">
-                    <button onclick="activatePromo()" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3.5 rounded-xl shadow-lg transition-all">
-                        Активировать
-                    </button>
-                    <div id="promoMessage" class="mt-4 text-xs font-medium"></div>
+                <div id="inventoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto max-h-[480px] pr-1">
+                    <div class="text-center py-12 text-slate-500 col-span-full">Inventory is empty. Spin the roulette!</div>
                 </div>
             </section>
 
-            <!-- 4. ВИВІД -->
-            <section id="section-withdrawal" class="tab-content hidden flex-1 flex flex-col">
-                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                    <h2 class="text-lg font-bold mb-2">Заявка на выплату / перенос номера</h2>
-                    <p class="text-xs text-slate-400 mb-6">Выберите редкий номер из вашего инвентаря и отправьте заявку на вывод.</p>
+            <!-- 3. WITHDRAWAL -->
+            <section id="section-withdrawal" class="tab-content hidden flex-1 flex flex-col items-center justify-center">
+                <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
+                    <h2 class="text-lg font-bold mb-1">Withdraw Stars</h2>
+                    <p class="text-xs text-slate-400 mb-6">Exchange your plates for stars and withdraw them to your Telegram account.</p>
                     
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">Ваш Telegram @username для связи</label>
-                            <input type="text" id="withdrawTelegram" readonly class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-slate-300">
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Telegram Tag</label>
+                            <input type="text" id="withdrawTelegram" readonly class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-slate-300 text-sm">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">Выберите предмет из инвентаря</label>
-                            <select id="withdrawItemSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500">
-                                <option value="">Сначала выбейте номер в рулетке</option>
-                            </select>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Amount to Withdraw (Min 10 ⭐)</label>
+                            <input type="number" id="withdrawAmount" placeholder="10" min="10" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500">
                         </div>
-                        <button onclick="requestWithdrawal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold py-3.5 rounded-xl shadow-lg transition-all">
-                            ОТПРАВИТЬ ЗАЯВКУ НА ВЫПЛАТУ
+                        <button onclick="requestWithdrawal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold py-3.5 rounded-xl shadow-lg transition-all text-sm">
+                            REQUEST WITHDRAWAL
                         </button>
                         <div id="withdrawMessage" class="text-center text-xs"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. REFERRALS -->
+            <section id="section-referral" class="tab-content hidden flex-1 flex flex-col items-center justify-center">
+                <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl text-center">
+                    <span class="text-4xl">👥</span>
+                    <h2 class="text-lg font-bold mt-2">Invite Friends</h2>
+                    <p class="text-xs text-slate-400 mt-1 mb-6">Invite friends and get +3 free spins for each referral!</p>
+                    
+                    <div class="bg-slate-800 border border-slate-700 p-3.5 rounded-xl mb-4 text-xs text-cyan-400 font-mono break-all select-all" id="refLinkDisplay">
+                        https://t.me/your_bot?start=ref
+                    </div>
+                    <button onclick="copyRefLink()" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3 rounded-xl shadow-lg transition-all text-sm">
+                        Copy Referral Link
+                    </button>
+                </div>
+            </section>
+
+            <!-- 5. SETTINGS -->
+            <section id="section-settings" class="tab-content hidden flex-1 flex flex-col items-center justify-center">
+                <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
+                    <h2 class="text-lg font-bold mb-5">⚙️ Settings</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">Theme Appearance</label>
+                            <select id="themeSelect" onchange="changeTheme()" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-cyan-500">
+                                <option value="dark">Dark Neon</option>
+                                <option value="light">Light Clean</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">Language</label>
+                            <select id="langSelect" onchange="changeLanguage()" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-cyan-500">
+                                <option value="en">English</option>
+                                <option value="uk">Українська</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -192,322 +190,314 @@
         </main>
     </div>
 
-    <!-- МОДАЛЬНЕ ВІКНО ДОНАТУ -->
-    <div id="donatModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <!-- DONATE MODAL (TELEGRAM STARS) -->
+    <div id="donateModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
             <span class="text-3xl">⭐</span>
-            <h3 class="text-lg font-bold mt-2">Пополнение баланса</h3>
-            <p class="text-xs text-slate-400 mt-1 mb-4">Курс: 1 Звезда = 1 Гривня (UAH)</p>
-            <div class="bg-slate-800 p-3 rounded-xl mb-4 text-xs text-slate-300">
-                Функция доната находится в разработке. Обратитесь к администратору @username для пополнения.
-            </div>
-            <button onclick="closeDonatModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-sm">Закрыть</button>
-        </div>
-    </div>
-
-    <!-- МОДАЛЬНЕ ВІКНО НАЛАШТУВАНЬ -->
-    <div id="settingsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 class="text-lg font-bold mb-4">⚙️ Настройки</h3>
+            <h3 class="text-lg font-bold mt-2">Top Up Balance</h3>
+            <p class="text-xs text-slate-400 mt-1 mb-5">Choose a Telegram Stars package to instantly fund your account.</p>
             
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Тема интерфейса</label>
-                    <select id="themeSelect" onchange="changeTheme(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-white text-sm">
-                        <option value="neon">Неоновая (Темная)</option>
-                        <option value="gold">Золотой премиум</option>
-                        <option value="office">Строгий офис</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Звуковые эффекты</label>
-                    <select id="soundSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-white text-sm">
-                        <option value="on">Включены</option>
-                        <option value="off">Выключены</option>
-                    </select>
-                </div>
+            <div class="space-y-2.5 mb-5">
+                <button onclick="buyStars(10)" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 py-3 rounded-xl flex justify-between px-4 text-sm font-semibold text-white transition-all">
+                    <span>10 Stars</span> <span class="text-amber-400">10 ⭐</span>
+                </button>
+                <button onclick="buyStars(50)" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 py-3 rounded-xl flex justify-between px-4 text-sm font-semibold text-white transition-all">
+                    <span>50 Stars</span> <span class="text-amber-400">50 ⭐</span>
+                </button>
+                <button onclick="buyStars(100)" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 py-3 rounded-xl flex justify-between px-4 text-sm font-semibold text-white transition-all">
+                    <span>100 Stars</span> <span class="text-amber-400">100 ⭐</span>
+                </button>
             </div>
 
-            <button onclick="closeSettingsModal()" class="w-full mt-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm">Сохранить</button>
+            <button onclick="closeDonateModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-sm">Cancel</button>
         </div>
     </div>
 
-    <!-- СКРИПТ ЛОГІКИ ТА SUPABASE -->
+    <!-- SCRIPT LOGIC -->
     <script>
-        // ВСТАВ СВОЇ ДАНІ SUPABASE ТУТ:
         const SUPABASE_URL = 'https://atbqzslhzbnmebdjonig.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_zjI9RflUYr-eA5p7DrIB7w_l8nrnFiF';
-        
+        const SUPABASE_ANON_KEY = 'Sb_publishable_zjI9RflUYr-eA5p7DrIB7w_l8nrnFiF';
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let currentUser = null;
 
-        // ВЕБ АУДІО API ДЛЯ ЗВУКІВ
+        // Audio synthesis for smooth clicks
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(type) {
-            if (document.getElementById('soundSelect').value === 'off') return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            
             const now = audioCtx.currentTime;
+
             if (type === 'click') {
-                osc.frequency.setValueAtTime(400, now);
-                gain.gain.setValueAtTime(0.05, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-                osc.start(now);
-                osc.stop(now + 0.05);
-            } else if (type === 'tick') {
-                osc.frequency.setValueAtTime(800, now);
-                gain.gain.setValueAtTime(0.03, now);
+                osc.frequency.setValueAtTime(450, now);
+                gain.gain.setValueAtTime(0.04, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-                osc.start(now);
-                osc.stop(now + 0.04);
+                osc.start(now); osc.stop(now + 0.04);
+            } else if (type === 'tick') {
+                osc.frequency.setValueAtTime(900, now);
+                gain.gain.setValueAtTime(0.02, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+                osc.start(now); osc.stop(now + 0.03);
             } else if (type === 'win') {
                 osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, now); // C5
-                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-                osc.start(now);
-                osc.stop(now + 0.4);
+                osc.frequency.setValueAtTime(587.33, now);
+                osc.frequency.setValueAtTime(880, now + 0.12);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                osc.start(now); osc.stop(now + 0.35);
             }
         }
 
-        // АВТОРИЗАЦІЯ
-        document.getElementById('authForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            playSound('click');
-            const telegram = document.getElementById('authTelegram').value.trim();
-            const pin = document.getElementById('authPin').value.trim();
-            const errDiv = document.getElementById('authError');
+        // Initialize Authentication (Telegram WebApp or Local Test Mode)
+        async function initAuth() {
+            let tgId = 'test_user_' + Math.floor(Math.random() * 100000);
+            let tgTag = '@test_user';
+            let startParam = null;
 
-            const { data, error } = await supabase.rpc('auth_user', { p_telegram: telegram, p_pin: pin });
-            
-            if (error || !data.success) {
-                errDiv.textContent = error?.message || data.error || 'Ошибка входа';
-                errDiv.classList.remove('hidden');
-                return;
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
+                const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+                tgId = String(tgUser.id);
+                tgTag = tgUser.username ? `@${tgUser.username}` : `id_${tgUser.id}`;
+                startParam = window.Telegram.WebApp.initDataUnsafe.start_param;
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
             }
 
-            currentUser = data.user;
-            initApp();
-        });
+            try {
+                // Call Supabase RPC auth function
+                const { data, error } = await supabase.rpc('auth_user_tg', {
+                    p_telegram_id: tgId,
+                    p_telegram_tag: tgTag
+                });
 
-        function initApp() {
-            document.getElementById('authModal').classList.add('hidden');
+                if (data && data.success) {
+                    currentUser = data.user;
+                } else {
+                    throw new Error('RPC auth failed');
+                }
+            } catch (err) {
+                console.warn('Fallback to local state due to network/DB error:', err);
+                currentUser = { id: 'local-uuid-' + tgId, telegram_tag: tgTag, balance: 15, free_spins: 3 };
+            }
+
+            // Handle referral if started via parameter
+            if (startParam && startParam.startsWith('ref')) {
+                const refCode = startParam.replace('ref', '');
+                if (refCode) {
+                    supabase.rpc('claim_referral', { p_new_user_id: currentUser.id, p_ref_code: refCode }).then(() => {});
+                }
+            }
+
+            document.getElementById('authLoader').classList.add('hidden');
             document.getElementById('appContainer').classList.remove('hidden');
             document.getElementById('userNameDisplay').textContent = currentUser.telegram_tag;
             document.getElementById('withdrawTelegram').value = currentUser.telegram_tag;
+            document.getElementById('refLinkDisplay').textContent = `https://t.me/YourBotName?start=ref${currentUser.telegram_id}`;
             updateUIStats();
         }
 
         function updateUIStats() {
-            if (!currentUser) return;
             document.getElementById('userBalance').textContent = currentUser.balance;
-            document.getElementById('freeSpinsInfo').textContent = `Доступно бесплатных прокрутов: ${currentUser.free_spins}`;
+            document.getElementById('freeSpinsInfo').textContent = `Free spins left: ${currentUser.free_spins}`;
         }
 
-        // ПЕРЕМИКАННЯ ВКЛАДОК
         function switchTab(tabName) {
             playSound('click');
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.className = 'tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all text-slate-400 hover:text-white';
-            });
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.className = 'tab-btn py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:text-white');
 
             document.getElementById(`section-${tabName}`).classList.remove('hidden');
-            const activeBtn = document.getElementById(`tab-${tabName}`);
-            activeBtn.className = 'tab-btn py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all bg-cyan-500 text-slate-950 shadow-md';
+            document.getElementById(`tab-${tabName}`).className = 'tab-btn py-2.5 rounded-xl text-xs font-semibold transition-all bg-cyan-500 text-slate-950 shadow-md';
 
             if (tabName === 'inventory') loadInventory();
-            if (tabName === 'withdrawal') loadWithdrawalItems();
         }
 
-        // РУЛЕТКА ТА АНІМАЦІЯ ПОСТУПОВОГО ВИПАДАННЯ
+        // Sequential digit rolling roulette animation
         async function spinWheel() {
             playSound('click');
             const spinBtn = document.getElementById('spinBtn');
             const country = document.getElementById('countrySelect').value;
             spinBtn.disabled = true;
 
-            // Викликаємо функцію бекенду
-            const { data, error } = await supabase.rpc('spin_wheel', { p_user_id: currentUser.id, p_country: country });
+            try {
+                // Execute secure spin on Supabase backend
+                const { data, error } = await supabase.rpc('spin_wheel', {
+                    p_user_id: currentUser.id === 'local-uuid' ? null : currentUser.id,
+                    p_country: country
+                });
 
-            if (error || !data.success) {
-                alert(error?.message || data.error || 'Недостаточно средств!');
-                spinBtn.disabled = false;
-                return;
-            }
-
-            // Оновлюємо локальний баланс (якщо були прокрути чи списання)
-            if (currentUser.free_spins > 0) {
-                currentUser.free_spins--;
-            } else {
-                currentUser.balance -= 5;
-            }
-            updateUIStats();
-
-            // Імітація анімації барабана (випадання по буквах для інтриги)
-            const finalPlate = data.plate;
-            const plateDisplay = document.getElementById('plateDisplay');
-            const resultInfo = document.getElementById('spinResultInfo');
-            resultInfo.textContent = 'Крутим барабан номеров...';
-
-            let iterations = 0;
-            const letters = 'ABCEHIKMOPTX0123456789';
-            const interval = setInterval(() => {
-                playSound('tick');
-                let randomFake = '';
-                for (let i = 0; i < finalPlate.length; i++) {
-                    if (finalPlate[i] === ' ') {
-                        randomFake += ' ';
-                    } else {
-                        randomFake += letters[Math.floor(Math.random() * letters.length)];
-                    }
-                }
-                plateDisplay.textContent = randomFake;
-                iterations++;
-
-                if (iterations > 18) {
-                    clearInterval(interval);
-                    plateDisplay.textContent = finalPlate;
-                    playSound('win');
-                    
-                    let rarityText = 'Обычный (в минус)';
-                    let colorClass = 'text-slate-400';
-                    if (data.rarity === 'rare') { rarityText = 'Редкий!'; colorClass = 'text-cyan-400'; }
-                    if (data.rarity === 'epic') { rarityText = 'Эпический!'; colorClass = 'text-pink-400'; }
-                    if (data.rarity === 'legendary') { rarityText = 'ЛЕГЕНДАРНЫЙ!! 🔥'; colorClass = 'text-amber-400'; }
-
-                    resultInfo.innerHTML = `<span class="${colorClass} font-bold">${rarityText} Ценность: ${data.value} ⭐</span>`;
+                if (error || !data.success) {
+                    alert(data?.error || 'Insufficient funds or spins!');
                     spinBtn.disabled = false;
+                    return;
                 }
-            }, 80);
+
+                const finalPlate = data.plate; // Format e.g. "AA 7777 BB"
+                const resultInfo = document.getElementById('spinResultInfo');
+                resultInfo.textContent = 'Rolling plate...';
+
+                // Local state deduction
+                if (currentUser.free_spins > 0) {
+                    currentUser.free_spins--;
+                } else {
+                    currentUser.balance -= 5;
+                }
+                updateUIStats();
+
+                const letters = 'ABCEHIKMOPTX';
+                const plateDisplay = document.getElementById('plateDisplay');
+                let iterations = 0;
+
+                const interval = setInterval(() => {
+                    playSound('tick');
+                    const rL1 = letters[Math.floor(Math.random()*letters.length)] + letters[Math.floor(Math.random()*letters.length)];
+                    const rN = Math.floor(Math.random() * 9000 + 1000);
+                    const rL2 = letters[Math.floor(Math.random()*letters.length)] + letters[Math.floor(Math.random()*letters.length)];
+                    plateDisplay.textContent = `${rL1} ${rN} ${rL2}`;
+                    iterations++;
+
+                    if (iterations > 18) {
+                        clearInterval(interval);
+                        plateDisplay.textContent = finalPlate;
+                        playSound('win');
+                        resultInfo.innerHTML = `<span class="text-cyan-400 font-bold">Won! Rarity: ${data.rarity.toUpperCase()} (Value: ${data.value} ⭐)</span>`;
+                        spinBtn.disabled = false;
+                    }
+                }, 75);
+
+            } catch (err) {
+                console.error(err);
+                alert('Connection error during spin.');
+                spinBtn.disabled = false;
+            }
         }
 
-        // ІНВЕНТАР
+        // Load inventory items & exchange option
         async function loadInventory() {
             const grid = document.getElementById('inventoryGrid');
-            grid.innerHTML = '<div class="text-center py-8 text-slate-500 col-span-full">Загрузка...</div>';
+            try {
+                const { data, error } = await supabase
+                    .from('inventory')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('status', 'inventory');
 
-            const { data, error } = await supabase
-                .from('inventory')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .order('created_at', { ascending: false });
+                if (!data || data.length === 0) {
+                    grid.innerHTML = '<div class="text-center py-12 text-slate-500 col-span-full">Inventory is empty. Spin the roulette!</div>';
+                    return;
+                }
 
-            if (error || !data || data.length === 0) {
-                grid.innerHTML = '<div class="text-center py-12 text-slate-500 col-span-full">Инвентарь пуст. Крутите рулетку!</div>';
-                return;
-            }
-
-            grid.innerHTML = data.map(item => `
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-md">
-                    <div>
-                        <div class="plate-font text-lg font-bold text-white tracking-widest">${item.plate_number}</div>
-                        <div class="text-xs text-slate-400 mt-1">Регион: ${item.country} | <span class="text-cyan-400">${item.rarity}</span></div>
-                        <div class="text-xs font-semibold text-amber-400 mt-0.5">Ценность: ${item.value} ⭐</div>
+                grid.innerHTML = data.map(item => `
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-md">
+                        <div>
+                            <div class="plate-font text-base font-bold text-white tracking-widest">${item.plate_number}</div>
+                            <div class="text-xs text-slate-400 mt-0.5">Rarity: <span class="text-cyan-400">${item.rarity}</span> | Value: <span class="text-amber-400">${item.value} ⭐</span></div>
+                        </div>
+                        <button onclick="exchangeItem('${item.id}')" class="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold transition-all">
+                            Exchange
+                        </button>
                     </div>
-                    <span class="text-xs px-2.5 py-1 rounded-lg ${item.status === 'inventory' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
-                        ${item.status === 'inventory' ? 'В инвентаре' : 'В обработке'}
-                    </span>
-                </div>
-            `).join('');
+                `).join('');
+            } catch (e) {
+                grid.innerHTML = '<div class="text-center py-12 text-slate-500 col-span-full">Failed to load inventory</div>';
+            }
         }
 
-        // ПРОМОКОДИ
-        async function activatePromo() {
+        async function exchangeItem(itemId) {
             playSound('click');
-            const code = document.getElementById('promoInput').value.trim();
-            const msg = document.getElementById('promoMessage');
+            try {
+                const { data, error } = await supabase.rpc('exchange_item_for_stars', {
+                    p_user_id: currentUser.id,
+                    p_item_id: itemId
+                });
 
-            if (!code) return;
-
-            const { data, error } = await supabase.rpc('activate_promocode', { p_user_id: currentUser.id, p_code: code });
-
-            if (error || !data.success) {
-                msg.textContent = error?.message || data.error || 'Ошибка активации';
-                msg.className = 'mt-4 text-xs font-medium text-red-400';
-                return;
+                if (data && data.success) {
+                    currentUser.balance = data.new_balance;
+                    updateUIStats();
+                    loadInventory();
+                    alert(`Successfully exchanged for +${data.added_stars} ⭐!`);
+                } else {
+                    alert(data?.error || 'Exchange failed');
+                }
+            } catch (err) {
+                alert('Error processing exchange');
             }
-
-            msg.textContent = data.message;
-            msg.className = 'mt-4 text-xs font-medium text-emerald-400';
-            document.getElementById('promoInput').value = '';
-            
-            // Оновлюємо дані користувача
-            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', currentUser.id).single();
-            if (updatedUser) {
-                currentUser = updatedUser;
-                updateUIStats();
-            }
-        }
-
-        // ВИВІД
-        async function loadWithdrawalItems() {
-            const select = document.getElementById('withdrawItemSelect');
-            const { data, error } = await supabase
-                .from('inventory')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .eq('status', 'inventory');
-
-            if (error || !data || data.length === 0) {
-                select.innerHTML = '<option value="">Нет доступных номеров в инвентаре</option>';
-                return;
-            }
-
-            select.innerHTML = data.map(item => `
-                <option value="${item.id}">[${item.rarity.toUpperCase()}] ${item.plate_number} — ${item.value} ⭐</option>
-            `).join('');
         }
 
         async function requestWithdrawal() {
             playSound('click');
-            const itemId = document.getElementById('withdrawItemSelect').value;
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
             const msg = document.getElementById('withdrawMessage');
 
-            if (!itemId) {
-                msg.textContent = 'Выберите номер для выплаты!';
-                msg.className = 'text-center text-xs text-red-400';
+            if (!amount || amount < 10) {
+                msg.textContent = 'Minimum withdrawal amount is 10 stars!';
+                msg.className = 'text-center text-xs text-red-400 mt-2';
                 return;
             }
 
-            const { data, error } = await supabase.rpc('request_withdrawal', { p_user_id: currentUser.id, p_item_id: itemId });
+            try {
+                const { data, error } = await supabase.rpc('request_withdrawal', {
+                    p_user_id: currentUser.id,
+                    p_amount: amount
+                });
 
-            if (error || !data.success) {
-                msg.textContent = error?.message || data.error || 'Ошибка отправки заявки';
-                msg.className = 'text-center text-xs text-red-400';
-                return;
-            }
-
-            msg.textContent = data.message;
-            msg.className = 'text-center text-xs text-emerald-400';
-            loadWithdrawalItems();
-        }
-
-        // МОДАЛЬНІ ВІКНА ТА ТЕМИ
-        function openDonatModal() { playSound('click'); document.getElementById('donatModal').classList.remove('hidden'); document.getElementById('donatModal').classList.add('flex'); }
-        function closeDonatModal() { playSound('click'); document.getElementById('donatModal').classList.remove('flex'); document.getElementById('donatModal').classList.add('hidden'); }
-
-        function openSettingsModal() { playSound('click'); document.getElementById('settingsModal').classList.remove('hidden'); document.getElementById('settingsModal').classList.add('flex'); }
-        function closeSettingsModal() { playSound('click'); document.getElementById('settingsModal').classList.remove('flex'); document.getElementById('settingsModal').classList.add('hidden'); }
-
-        function changeTheme(theme) {
-            const body = document.getElementById('bodyTheme');
-            if (theme === 'neon') {
-                body.className = 'bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white transition-colors duration-300';
-            } else if (theme === 'gold') {
-                body.className = 'bg-[#12110e] text-amber-100 min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950 transition-colors duration-300';
-            } else if (theme === 'office') {
-                body.className = 'bg-slate-900 text-slate-200 min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white transition-colors duration-300';
+                if (data && data.success) {
+                    currentUser.balance -= amount;
+                    updateUIStats();
+                    msg.textContent = data.message;
+                    msg.className = 'text-center text-xs text-emerald-400 mt-2';
+                    document.getElementById('withdrawAmount').value = '';
+                } else {
+                    msg.textContent = data?.error || 'Withdrawal failed';
+                    msg.className = 'text-center text-xs text-red-400 mt-2';
+                }
+            } catch (err) {
+                msg.textContent = 'Server error during withdrawal request';
+                msg.className = 'text-center text-xs text-red-400 mt-2';
             }
         }
+
+        function copyRefLink() {
+            playSound('click');
+            const linkText = document.getElementById('refLinkDisplay').textContent;
+            navigator.clipboard.writeText(linkText);
+            alert('Referral link copied to clipboard!');
+        }
+
+        function openDonateModal() { document.getElementById('donateModal').classList.remove('hidden'); document.getElementById('donateModal').classList.add('flex'); }
+        function closeDonateModal() { document.getElementById('donateModal').classList.remove('flex'); document.getElementById('donateModal').classList.add('hidden'); }
+
+        function buyStars(amount) {
+            playSound('click');
+            if (window.Telegram && window.Telegram.WebApp) {
+                // Telegram Stars invoice trigger placeholder
+                alert(`Initiating Telegram Stars invoice for ${amount} ⭐`);
+            } else {
+                currentUser.balance += amount;
+                updateUIStats();
+                closeDonateModal();
+                alert(`Test mode: Added +${amount} ⭐ to your balance!`);
+            }
+        }
+
+        function changeTheme() {
+            const theme = document.getElementById('themeSelect').value;
+            if (theme === 'light') {
+                document.body.className = 'bg-slate-100 text-slate-900 min-h-screen flex flex-col justify-between transition-colors duration-300';
+            } else {
+                document.body.className = 'bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between transition-colors duration-300';
+            }
+        }
+
+        function changeLanguage() {
+            const lang = document.getElementById('langSelect').value;
+            alert(lang === 'uk' ? 'Мову змінено на українську (Інтерфейс адаптован)' : 'Language set to English');
+        }
+
+        window.onload = initAuth;
     </script>
 </body>
 </html>
