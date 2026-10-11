@@ -252,18 +252,73 @@
         }
 
         // Initialize Authentication (Telegram WebApp or Local Test Mode)
-        async function initAuth() {
-            let tgId = 'test_user_' + Math.floor(Math.random() * 100000);
+                async function initAuth() {
+            const statusEl = document.getElementById('loaderStatus');
+            let tgId = 'test_user_12345';
             let tgTag = '@test_user';
             let startParam = null;
 
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
-                const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
-                tgId = String(tgUser.id);
-                tgTag = tgUser.username ? `@${tgUser.username}` : `id_${tgUser.id}`;
-                startParam = window.Telegram.WebApp.initDataUnsafe.start_param;
-                window.Telegram.WebApp.ready();
-                window.Telegram.WebApp.expand();
+            statusEl.textContent = 'Checking Telegram environment...';
+
+            if (window.Telegram && window.Telegram.WebApp) {
+                const webApp = window.Telegram.WebApp;
+                webApp.ready();
+                webApp.expand();
+
+                if (webApp.initDataUnsafe && webApp.initDataUnsafe.user) {
+                    const tgUser = webApp.initDataUnsafe.user;
+                    tgId = String(tgUser.id);
+                    tgTag = tgUser.username ? `@${tgUser.username}` : `id_${tgUser.id}`;
+                    startParam = webApp.initDataUnsafe.start_param;
+                    statusEl.textContent = `User found: ${tgTag}. Connecting to DB...`;
+                } else {
+                    statusEl.textContent = 'Telegram WebApp detected, but no user object. Using test ID...';
+                }
+            } else {
+                statusEl.textContent = 'Running in browser. Using test ID...';
+            }
+
+            try {
+                statusEl.textContent = `Sending request for ID: ${tgId}...`;
+                
+                // Перевіряємо зв'язок через виклик Supabase RPC
+                const { data, error } = await supabase.rpc('auth_user_tg', {
+                    p_telegram_id: tgId,
+                    p_telegram_tag: tgTag
+                });
+
+                if (error) {
+                    // Якщо база повернула помилку, показуємо її на екрані
+                    console.error('Supabase error:', error);
+                    statusEl.textContent = `DB Error: ${error.message || JSON.stringify(error)}`;
+                    return; // Зупиняємося, щоб ти бачив помилку
+                }
+
+                if (data && data.success) {
+                    currentUser = data.user;
+                    statusEl.textContent = 'Success! Opening app...';
+                } else {
+                    statusEl.textContent = `Server error: ${data?.error || 'Unknown response'}`;
+                    return;
+                }
+            } catch (err) {
+                // Якщо заблокувало мережу / CORS / неправильна URL
+                console.error('Network / Fetch error:', err);
+                statusEl.textContent = `Network Error: ${err.message}. Check URL/Key!`;
+                return;
+            }
+
+            // Невелика пауза перед відкриттям інтерфейсу
+            await new Promise(r => setTimeout(r, 600));
+
+            document.getElementById('authLoader').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            document.getElementById('userNameDisplay').textContent = currentUser.telegram_tag;
+            document.getElementById('withdrawTelegram').value = currentUser.telegram_tag;
+            document.getElementById('refLinkDisplay').textContent = `https://t.me/YourBotName?start=ref${currentUser.telegram_id}`;
+            updateUIStats();
+        }
+
             }
 
             try {
